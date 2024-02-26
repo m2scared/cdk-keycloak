@@ -1,58 +1,57 @@
-import { App, assertions, Stack } from 'aws-cdk-lib';
-import * as kc from '../src';
+import { App, assertions, Stack } from "aws-cdk-lib";
+import * as kc from "../src";
 // import '@aws-cdk/assert/jest';
-import { KeycloakVersion } from '../src';
-test('create the default cluster', () => {
-
+import { KeycloakVersion } from "../src";
+test("create the default cluster", () => {
   // GIVEN
   const app = new App();
-  const stack = new Stack(app, 'testing-stack');
+  const stack = new Stack(app, "testing-stack");
 
   // WHEN
-  new kc.KeyCloak(stack, 'KeyCloak', {
-    certificateArn: 'MOCK_ARN',
+  new kc.KeyCloak(stack, "KeyCloak", {
+    certificateArn: "MOCK_ARN",
     keycloakVersion: KeycloakVersion.V15_0_2,
   });
 
   // THEN
   const t = assertions.Template.fromStack(stack);
-  t.hasResourceProperties('AWS::RDS::DBCluster', {
-    Engine: 'aurora-mysql',
-    DBClusterParameterGroupName: 'default.aurora-mysql8.0',
+  t.hasResourceProperties("AWS::RDS::DBCluster", {
+    Engine: "aurora-mysql",
+    DBClusterParameterGroupName: "default.aurora-mysql8.0",
     DBSubnetGroupName: {
-      Ref: 'KeyCloakDatabaseDBClusterSubnetsE36F1B1B',
+      Ref: "KeyCloakDatabaseDBClusterSubnetsE36F1B1B",
     },
-    EngineVersion: '8.0.mysql_aurora.3.04.0',
-    MasterUsername: 'admin',
+    EngineVersion: "8.0.mysql_aurora.3.04.0",
+    MasterUsername: "admin",
     MasterUserPassword: {
-      'Fn::Join': [
-        '',
+      "Fn::Join": [
+        "",
         [
-          '{{resolve:secretsmanager:',
+          "{{resolve:secretsmanager:",
           {
-            Ref: 'testingstackKeyCloakDatabaseDBClusterSecret754146743fdaad7efa858a3daf9490cf0a702aeb',
+            Ref: "testingstackKeyCloakDatabaseDBClusterSecret754146743fdaad7efa858a3daf9490cf0a702aeb",
           },
-          ':SecretString:password::}}',
+          ":SecretString:password::}}",
         ],
       ],
     },
     VpcSecurityGroupIds: [
       {
-        'Fn::GetAtt': [
-          'KeyCloakDatabaseDBClusterSecurityGroup843B4392',
-          'GroupId',
+        "Fn::GetAtt": [
+          "KeyCloakDatabaseDBClusterSecurityGroup843B4392",
+          "GroupId",
         ],
       },
     ],
   });
   // we should have 2 db instances in the cluster
-  t.resourceCountIs('AWS::RDS::DBInstance', 2);
+  t.resourceCountIs("AWS::RDS::DBInstance", 2);
   // we should have 2 secrets
-  t.resourceCountIs('AWS::SecretsManager::Secret', 2);
+  t.resourceCountIs("AWS::SecretsManager::Secret", 2);
   // we should have ecs service
-  t.hasResourceProperties('AWS::ECS::Service', {
+  t.hasResourceProperties("AWS::ECS::Service", {
     Cluster: {
-      Ref: 'KeyCloakKeyCloakContainerServiceCluster4583BCAE',
+      Ref: "KeyCloakKeyCloakContainerServiceCluster4583BCAE",
     },
     DeploymentConfiguration: {
       MaximumPercent: 200,
@@ -61,71 +60,70 @@ test('create the default cluster', () => {
     DesiredCount: 2,
     EnableECSManagedTags: false,
     HealthCheckGracePeriodSeconds: 120,
-    LaunchType: 'FARGATE',
+    LaunchType: "FARGATE",
     LoadBalancers: [
       {
-        ContainerName: 'keycloak',
+        ContainerName: "keycloak",
         ContainerPort: 8443,
         TargetGroupArn: {
-          Ref: 'KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774',
+          Ref: "KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774",
         },
       },
     ],
     NetworkConfiguration: {
       AwsvpcConfiguration: {
-        AssignPublicIp: 'DISABLED',
+        AssignPublicIp: "DISABLED",
         SecurityGroups: [
           {
-            'Fn::GetAtt': [
-              'KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A',
-              'GroupId',
+            "Fn::GetAtt": [
+              "KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A",
+              "GroupId",
             ],
           },
         ],
         Subnets: [
           {
-            Ref: 'KeyCloakVpcPrivateSubnet1SubnetA692DFFF',
+            Ref: "KeyCloakVpcPrivateSubnet1SubnetA692DFFF",
           },
           {
-            Ref: 'KeyCloakVpcPrivateSubnet2SubnetC8682D75',
+            Ref: "KeyCloakVpcPrivateSubnet2SubnetC8682D75",
           },
         ],
       },
     },
     TaskDefinition: {
-      Ref: 'KeyCloakKeyCloakContainerServiceTaskDef6AD61714',
+      Ref: "KeyCloakKeyCloakContainerServiceTaskDef6AD61714",
     },
   });
 });
 
-test('with aurora serverless', () => {
-
+test("with aurora serverless", () => {
   // GIVEN
   const app = new App();
-  const stack = new Stack(app, 'testing-stack');
+  const stack = new Stack(app, "testing-stack");
 
   // WHEN
-  new kc.KeyCloak(stack, 'KeyCloak', {
-    certificateArn: 'MOCK_ARN',
+  new kc.KeyCloak(stack, "KeyCloak", {
+    certificateArn: "MOCK_ARN",
     auroraServerless: true,
     keycloakVersion: KeycloakVersion.V15_0_2,
   });
 
   // THEN
   const t = assertions.Template.fromStack(stack);
-  t.hasResourceProperties('AWS::RDS::DBCluster', {
-    Engine: 'aurora-mysql',
-    DBClusterParameterGroupName: 'default.aurora-mysql5.7',
-    EngineMode: 'serverless',
+  t.hasResourceProperties("AWS::RDS::DBCluster", {
+    Engine: "aurora-mysql",
+    DBClusterParameterGroupName: "default.aurora-mysql5.7",
+    EngineMode: "serverless",
   });
   // we should have 0 db instance in the cluster
-  t.resourceCountIs('AWS::RDS::DBInstance', 0);
+  t.resourceCountIs("AWS::RDS::DBInstance", 0);
   // we should have 2 secrets
-  t.resourceCountIs('AWS::SecretsManager::Secret', 2);
+  t.resourceCountIs("AWS::SecretsManager::Secret", 2);
   // we should have ecs service
-  t.hasResourceProperties('AWS::ECS::Service', {
+  t.hasResourceProperties("AWS::ECS::Service", {
     Cluster: {
-      Ref: 'KeyCloakKeyCloakContainerServiceCluster4583BCAE',
+      Ref: "KeyCloakKeyCloakContainerServiceCluster4583BCAE",
     },
     DeploymentConfiguration: {
       MaximumPercent: 200,
@@ -134,75 +132,74 @@ test('with aurora serverless', () => {
     DesiredCount: 2,
     EnableECSManagedTags: false,
     HealthCheckGracePeriodSeconds: 120,
-    LaunchType: 'FARGATE',
+    LaunchType: "FARGATE",
     LoadBalancers: [
       {
-        ContainerName: 'keycloak',
+        ContainerName: "keycloak",
         ContainerPort: 8443,
         TargetGroupArn: {
-          Ref: 'KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774',
+          Ref: "KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774",
         },
       },
     ],
     NetworkConfiguration: {
       AwsvpcConfiguration: {
-        AssignPublicIp: 'DISABLED',
+        AssignPublicIp: "DISABLED",
         SecurityGroups: [
           {
-            'Fn::GetAtt': [
-              'KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A',
-              'GroupId',
+            "Fn::GetAtt": [
+              "KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A",
+              "GroupId",
             ],
           },
         ],
         Subnets: [
           {
-            Ref: 'KeyCloakVpcPrivateSubnet1SubnetA692DFFF',
+            Ref: "KeyCloakVpcPrivateSubnet1SubnetA692DFFF",
           },
           {
-            Ref: 'KeyCloakVpcPrivateSubnet2SubnetC8682D75',
+            Ref: "KeyCloakVpcPrivateSubnet2SubnetC8682D75",
           },
         ],
       },
     },
     TaskDefinition: {
-      Ref: 'KeyCloakKeyCloakContainerServiceTaskDef6AD61714',
+      Ref: "KeyCloakKeyCloakContainerServiceTaskDef6AD61714",
     },
   });
 });
 
-test('with aurora serverless v2', () => {
-
+test("with aurora serverless v2", () => {
   // GIVEN
   const app = new App();
-  const stack = new Stack(app, 'testing-stack');
+  const stack = new Stack(app, "testing-stack");
 
   // WHEN
-  new kc.KeyCloak(stack, 'KeyCloak', {
-    certificateArn: 'MOCK_ARN',
+  new kc.KeyCloak(stack, "KeyCloak", {
+    certificateArn: "MOCK_ARN",
     auroraServerlessV2: true,
     keycloakVersion: KeycloakVersion.V15_0_2,
   });
 
   // THEN
   const t = assertions.Template.fromStack(stack);
-  t.hasResourceProperties('AWS::RDS::DBCluster', {
-    Engine: 'aurora-mysql',
-    DBClusterParameterGroupName: 'default.aurora-mysql8.0',
+  t.hasResourceProperties("AWS::RDS::DBCluster", {
+    Engine: "aurora-mysql",
+    DBClusterParameterGroupName: "default.aurora-mysql8.0",
     DBSubnetGroupName: {
-      Ref: 'KeyCloakDatabaseDBClusterSubnetsE36F1B1B',
+      Ref: "KeyCloakDatabaseDBClusterSubnetsE36F1B1B",
     },
-    EngineVersion: '8.0.mysql_aurora.3.04.0',
-    MasterUsername: 'admin',
+    EngineVersion: "8.0.mysql_aurora.3.04.0",
+    MasterUsername: "admin",
     MasterUserPassword: {
-      'Fn::Join': [
-        '',
+      "Fn::Join": [
+        "",
         [
-          '{{resolve:secretsmanager:',
+          "{{resolve:secretsmanager:",
           {
-            Ref: 'testingstackKeyCloakDatabaseDBClusterSecret754146743fdaad7efa858a3daf9490cf0a702aeb',
+            Ref: "testingstackKeyCloakDatabaseDBClusterSecret754146743fdaad7efa858a3daf9490cf0a702aeb",
           },
-          ':SecretString:password::}}',
+          ":SecretString:password::}}",
         ],
       ],
     },
@@ -212,25 +209,25 @@ test('with aurora serverless v2', () => {
     },
     VpcSecurityGroupIds: [
       {
-        'Fn::GetAtt': [
-          'KeyCloakDatabaseDBClusterSecurityGroup843B4392',
-          'GroupId',
+        "Fn::GetAtt": [
+          "KeyCloakDatabaseDBClusterSecurityGroup843B4392",
+          "GroupId",
         ],
       },
     ],
   });
   // we should have 2 db instances in the cluster
-  t.resourceCountIs('AWS::RDS::DBInstance', 2);
+  t.resourceCountIs("AWS::RDS::DBInstance", 2);
   // we should have db instance with db.serverless instance class
-  t.hasResourceProperties('AWS::RDS::DBInstance', {
-    DBInstanceClass: 'db.serverless',
+  t.hasResourceProperties("AWS::RDS::DBInstance", {
+    DBInstanceClass: "db.serverless",
   });
   // we should have 2 secrets
-  t.resourceCountIs('AWS::SecretsManager::Secret', 2);
+  t.resourceCountIs("AWS::SecretsManager::Secret", 2);
   // we should have ecs service
-  t.hasResourceProperties('AWS::ECS::Service', {
+  t.hasResourceProperties("AWS::ECS::Service", {
     Cluster: {
-      Ref: 'KeyCloakKeyCloakContainerServiceCluster4583BCAE',
+      Ref: "KeyCloakKeyCloakContainerServiceCluster4583BCAE",
     },
     DeploymentConfiguration: {
       MaximumPercent: 200,
@@ -239,52 +236,51 @@ test('with aurora serverless v2', () => {
     DesiredCount: 2,
     EnableECSManagedTags: false,
     HealthCheckGracePeriodSeconds: 120,
-    LaunchType: 'FARGATE',
+    LaunchType: "FARGATE",
     LoadBalancers: [
       {
-        ContainerName: 'keycloak',
+        ContainerName: "keycloak",
         ContainerPort: 8443,
         TargetGroupArn: {
-          Ref: 'KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774',
+          Ref: "KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774",
         },
       },
     ],
     NetworkConfiguration: {
       AwsvpcConfiguration: {
-        AssignPublicIp: 'DISABLED',
+        AssignPublicIp: "DISABLED",
         SecurityGroups: [
           {
-            'Fn::GetAtt': [
-              'KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A',
-              'GroupId',
+            "Fn::GetAtt": [
+              "KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A",
+              "GroupId",
             ],
           },
         ],
         Subnets: [
           {
-            Ref: 'KeyCloakVpcPrivateSubnet1SubnetA692DFFF',
+            Ref: "KeyCloakVpcPrivateSubnet1SubnetA692DFFF",
           },
           {
-            Ref: 'KeyCloakVpcPrivateSubnet2SubnetC8682D75',
+            Ref: "KeyCloakVpcPrivateSubnet2SubnetC8682D75",
           },
         ],
       },
     },
     TaskDefinition: {
-      Ref: 'KeyCloakKeyCloakContainerServiceTaskDef6AD61714',
+      Ref: "KeyCloakKeyCloakContainerServiceTaskDef6AD61714",
     },
   });
 });
 
-test('with single rds instance', () => {
-
+test("with single rds instance", () => {
   // GIVEN
   const app = new App();
-  const stack = new Stack(app, 'testing-stack');
+  const stack = new Stack(app, "testing-stack");
 
   // WHEN
-  new kc.KeyCloak(stack, 'KeyCloak', {
-    certificateArn: 'MOCK_ARN',
+  new kc.KeyCloak(stack, "KeyCloak", {
+    certificateArn: "MOCK_ARN",
     singleDbInstance: true,
     keycloakVersion: KeycloakVersion.V15_0_2,
   });
@@ -292,48 +288,48 @@ test('with single rds instance', () => {
   // THEN
   const t = assertions.Template.fromStack(stack);
   // we should have no cluster
-  t.resourceCountIs('AWS::RDS::DBCluster', 0);
+  t.resourceCountIs("AWS::RDS::DBCluster", 0);
   // we should have 1 db instance in the cluster
-  t.resourceCountIs('AWS::RDS::DBInstance', 1);
-  t.hasResourceProperties('AWS::RDS::DBInstance', {
-    DBInstanceClass: 'db.r5.large',
-    AllocatedStorage: '100',
+  t.resourceCountIs("AWS::RDS::DBInstance", 1);
+  t.hasResourceProperties("AWS::RDS::DBInstance", {
+    DBInstanceClass: "db.r5.large",
+    AllocatedStorage: "100",
     CopyTagsToSnapshot: true,
-    DBParameterGroupName: 'default.mysql8.0',
+    DBParameterGroupName: "default.mysql8.0",
     DBSubnetGroupName: {
-      Ref: 'KeyCloakDatabaseDBInstanceSubnetGroup71BF616F',
+      Ref: "KeyCloakDatabaseDBInstanceSubnetGroup71BF616F",
     },
-    Engine: 'mysql',
-    EngineVersion: '8.0.34',
-    MasterUsername: 'admin',
+    Engine: "mysql",
+    EngineVersion: "8.0.34",
+    MasterUsername: "admin",
     MasterUserPassword: {
-      'Fn::Join': [
-        '',
+      "Fn::Join": [
+        "",
         [
-          '{{resolve:secretsmanager:',
+          "{{resolve:secretsmanager:",
           {
-            Ref: 'testingstackKeyCloakDatabaseDBInstanceSecretA1C7CB093fdaad7efa858a3daf9490cf0a702aeb',
+            Ref: "testingstackKeyCloakDatabaseDBInstanceSecretA1C7CB093fdaad7efa858a3daf9490cf0a702aeb",
           },
-          ':SecretString:password::}}',
+          ":SecretString:password::}}",
         ],
       ],
     },
-    StorageType: 'gp2',
+    StorageType: "gp2",
     VPCSecurityGroups: [
       {
-        'Fn::GetAtt': [
-          'KeyCloakDatabaseDBInstanceSecurityGroupC897947D',
-          'GroupId',
+        "Fn::GetAtt": [
+          "KeyCloakDatabaseDBInstanceSecurityGroupC897947D",
+          "GroupId",
         ],
       },
     ],
   });
   // we should have 2 secrets
-  t.resourceCountIs('AWS::SecretsManager::Secret', 2);
+  t.resourceCountIs("AWS::SecretsManager::Secret", 2);
   // we should have ecs service
-  t.hasResourceProperties('AWS::ECS::Service', {
+  t.hasResourceProperties("AWS::ECS::Service", {
     Cluster: {
-      Ref: 'KeyCloakKeyCloakContainerServiceCluster4583BCAE',
+      Ref: "KeyCloakKeyCloakContainerServiceCluster4583BCAE",
     },
     DeploymentConfiguration: {
       MaximumPercent: 200,
@@ -342,190 +338,189 @@ test('with single rds instance', () => {
     DesiredCount: 2,
     EnableECSManagedTags: false,
     HealthCheckGracePeriodSeconds: 120,
-    LaunchType: 'FARGATE',
+    LaunchType: "FARGATE",
     LoadBalancers: [
       {
-        ContainerName: 'keycloak',
+        ContainerName: "keycloak",
         ContainerPort: 8443,
         TargetGroupArn: {
-          Ref: 'KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774',
+          Ref: "KeyCloakKeyCloakContainerServiceALBHttpsListenerECSTargetGroup65B43774",
         },
       },
     ],
     NetworkConfiguration: {
       AwsvpcConfiguration: {
-        AssignPublicIp: 'DISABLED',
+        AssignPublicIp: "DISABLED",
         SecurityGroups: [
           {
-            'Fn::GetAtt': [
-              'KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A',
-              'GroupId',
+            "Fn::GetAtt": [
+              "KeyCloakKeyCloakContainerServiceSecurityGroup7433DA3A",
+              "GroupId",
             ],
           },
         ],
         Subnets: [
           {
-            Ref: 'KeyCloakVpcPrivateSubnet1SubnetA692DFFF',
+            Ref: "KeyCloakVpcPrivateSubnet1SubnetA692DFFF",
           },
           {
-            Ref: 'KeyCloakVpcPrivateSubnet2SubnetC8682D75',
+            Ref: "KeyCloakVpcPrivateSubnet2SubnetC8682D75",
           },
         ],
       },
     },
     TaskDefinition: {
-      Ref: 'KeyCloakKeyCloakContainerServiceTaskDef6AD61714',
+      Ref: "KeyCloakKeyCloakContainerServiceTaskDef6AD61714",
     },
   });
 });
 
-test('with env', () => {
+test("with env", () => {
   // GIVEN
   const app = new App();
-  const stack = new Stack(app, 'testing-stack');
+  const stack = new Stack(app, "testing-stack");
 
   // WHEN
-  new kc.KeyCloak(stack, 'KeyCloak', {
+  new kc.KeyCloak(stack, "KeyCloak", {
     keycloakVersion: KeycloakVersion.V15_0_2,
-    certificateArn: 'MOCK_ARN',
+    certificateArn: "MOCK_ARN",
     env: {
-      JAVA_OPTS: '-DHelloWorld',
+      JAVA_OPTS: "-DHelloWorld",
     },
   });
 
   // THEN
   const t = assertions.Template.fromStack(stack);
-  t.hasResourceProperties('AWS::ECS::TaskDefinition', {
-
+  t.hasResourceProperties("AWS::ECS::TaskDefinition", {
     ContainerDefinitions: [
       {
         Environment: [
           {
-            Name: 'DB_ADDR',
+            Name: "DB_ADDR",
             Value: {
-              'Fn::GetAtt': [
-                'KeyCloakDatabaseDBCluster06E9C0E1',
-                'Endpoint.Address',
+              "Fn::GetAtt": [
+                "KeyCloakDatabaseDBCluster06E9C0E1",
+                "Endpoint.Address",
               ],
             },
           },
           {
-            Name: 'DB_DATABASE',
-            Value: 'keycloak',
+            Name: "DB_DATABASE",
+            Value: "keycloak",
           },
           {
-            Name: 'DB_PORT',
-            Value: '3306',
+            Name: "DB_PORT",
+            Value: "3306",
           },
           {
-            Name: 'DB_USER',
-            Value: 'admin',
+            Name: "DB_USER",
+            Value: "admin",
           },
           {
-            Name: 'DB_VENDOR',
-            Value: 'mysql',
+            Name: "DB_VENDOR",
+            Value: "mysql",
           },
           {
-            Name: 'JDBC_PARAMS',
-            Value: 'useSSL=false',
+            Name: "JDBC_PARAMS",
+            Value: "useSSL=false",
           },
           {
-            Name: 'JGROUPS_DISCOVERY_PROTOCOL',
-            Value: 'JDBC_PING',
+            Name: "JGROUPS_DISCOVERY_PROTOCOL",
+            Value: "JDBC_PING",
           },
           {
-            Name: 'PROXY_ADDRESS_FORWARDING',
-            Value: 'true',
+            Name: "PROXY_ADDRESS_FORWARDING",
+            Value: "true",
           },
           {
-            Name: 'JAVA_OPTS',
-            Value: '-DHelloWorld',
+            Name: "JAVA_OPTS",
+            Value: "-DHelloWorld",
           },
         ],
         Essential: true,
         Image: {
-          'Fn::FindInMap': [
-            'KeyCloakKeyCloakContainerServiceKeycloakImageMapE15D4544',
+          "Fn::FindInMap": [
+            "KeyCloakKeyCloakContainerServiceKeycloakImageMapE15D4544",
             {
-              Ref: 'AWS::Partition',
+              Ref: "AWS::Partition",
             },
-            'uri',
+            "uri",
           ],
         },
         LogConfiguration: {
-          LogDriver: 'awslogs',
+          LogDriver: "awslogs",
           Options: {
-            'awslogs-group': {
-              Ref: 'KeyCloakKeyCloakContainerServiceLogGroup770A4A22',
+            "awslogs-group": {
+              Ref: "KeyCloakKeyCloakContainerServiceLogGroup770A4A22",
             },
-            'awslogs-stream-prefix': 'keycloak',
-            'awslogs-region': {
-              Ref: 'AWS::Region',
+            "awslogs-stream-prefix": "keycloak",
+            "awslogs-region": {
+              Ref: "AWS::Region",
             },
           },
         },
-        Name: 'keycloak',
+        Name: "keycloak",
         PortMappings: [
           {
             ContainerPort: 8443,
-            Protocol: 'tcp',
+            Protocol: "tcp",
           },
           {
             ContainerPort: 7600,
-            Protocol: 'tcp',
+            Protocol: "tcp",
           },
           {
             ContainerPort: 57600,
-            Protocol: 'tcp',
+            Protocol: "tcp",
           },
           {
             ContainerPort: 55200,
-            Protocol: 'udp',
+            Protocol: "udp",
           },
           {
             ContainerPort: 54200,
-            Protocol: 'udp',
+            Protocol: "udp",
           },
         ],
         Secrets: [
           {
-            Name: 'DB_PASSWORD',
+            Name: "DB_PASSWORD",
             ValueFrom: {
-              'Fn::Join': [
-                '',
+              "Fn::Join": [
+                "",
                 [
                   {
-                    Ref: 'KeyCloakDatabaseDBClusterSecretAttachment50401C92',
+                    Ref: "KeyCloakDatabaseDBClusterSecretAttachment50401C92",
                   },
-                  ':password::',
+                  ":password::",
                 ],
               ],
             },
           },
           {
-            Name: 'KEYCLOAK_USER',
+            Name: "KEYCLOAK_USER",
             ValueFrom: {
-              'Fn::Join': [
-                '',
+              "Fn::Join": [
+                "",
                 [
                   {
-                    Ref: 'KeyCloakKCSecretF8498E5C',
+                    Ref: "KeyCloakKCSecretF8498E5C",
                   },
-                  ':username::',
+                  ":username::",
                 ],
               ],
             },
           },
           {
-            Name: 'KEYCLOAK_PASSWORD',
+            Name: "KEYCLOAK_PASSWORD",
             ValueFrom: {
-              'Fn::Join': [
-                '',
+              "Fn::Join": [
+                "",
                 [
                   {
-                    Ref: 'KeyCloakKCSecretF8498E5C',
+                    Ref: "KeyCloakKCSecretF8498E5C",
                   },
-                  ':password::',
+                  ":password::",
                 ],
               ],
             },
@@ -533,23 +528,18 @@ test('with env', () => {
         ],
       },
     ],
-    Cpu: '4096',
+    Cpu: "4096",
     ExecutionRoleArn: {
-      'Fn::GetAtt': [
-        'KeyCloakKeyCloakContainerServiceTaskRoleE227375A',
-        'Arn',
-      ],
+      "Fn::GetAtt": ["KeyCloakKeyCloakContainerServiceTaskRoleE227375A", "Arn"],
     },
-    Family: 'testingstackKeyCloakKeyCloakContainerServiceTaskDef1B636EF3',
-    Memory: '8192',
-    NetworkMode: 'awsvpc',
-    RequiresCompatibilities: [
-      'FARGATE',
-    ],
+    Family: "testingstackKeyCloakKeyCloakContainerServiceTaskDef1B636EF3",
+    Memory: "8192",
+    NetworkMode: "awsvpc",
+    RequiresCompatibilities: ["FARGATE"],
     TaskRoleArn: {
-      'Fn::GetAtt': [
-        'KeyCloakKeyCloakContainerServiceTaskDefTaskRole509DDBD7',
-        'Arn',
+      "Fn::GetAtt": [
+        "KeyCloakKeyCloakContainerServiceTaskDefTaskRole509DDBD7",
+        "Arn",
       ],
     },
   });
