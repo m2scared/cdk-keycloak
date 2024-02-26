@@ -7,6 +7,7 @@ import {
   aws_rds as rds,
   aws_secretsmanager as secretsmanager,
 } from 'aws-cdk-lib';
+import { InstanceSize } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 
 // regional availibility for aurora serverless
@@ -284,20 +285,20 @@ export interface KeyCloakProps {
   readonly containerImage?: ecs.ContainerImage;
 
   /**
-   * The number of cpu units used by the keycloak task.
+   * The type of EC2 instance in ASG.
    *
-   * @default 4096
-   * @see FargateTaskDefinitionProps
+   * @default ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, InstanceSize.SMALL)
+   * @see InstanceType
    */
-  readonly taskCpu?: number;
+  readonly ecsAsgInstanceType?: cdk.aws_ec2.InstanceType;
 
   /**
-   * The amount (in MiB) of memory used by the keycloak task.
+   * The number of EC2 instances in ASG.
    *
-   * @default 8192
-   * @see FargateTaskDefinitionProps
+   * @default 2
+   * @see AddCapacityOptions
    */
-  readonly taskMemory?: number;
+  readonly ecsAsgDesiredCapacity?: number;
 
 }
 
@@ -349,8 +350,8 @@ export class KeyCloak extends Construct {
       internetFacing: props.internetFacing ?? true,
       hostname: props.hostname,
       containerImage: props.containerImage,
-      taskCpu: props.taskCpu,
-      taskMemory: props.taskMemory,
+      ecsAsgInstanceType: props.ecsAsgInstanceType,
+      ecsAsgDesiredCapacity: props.ecsAsgDesiredCapacity,
     });
 
     this.applicationLoadBalancer = keycloakContainerService.applicationLoadBalancer;
@@ -723,24 +724,24 @@ export interface ContainerServiceProps {
   readonly containerImage?: ecs.ContainerImage;
 
   /**
-   * The number of cpu units used by the keycloak task.
+   * The type of EC2 instance in ASG.
    *
-   * @default 4096
-   * @see FargateTaskDefinitionProps
+   * @default ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, InstanceSize.SMALL)
+   * @see InstanceType
    */
-  readonly taskCpu?: number;
+  readonly ecsAsgInstanceType?: cdk.aws_ec2.InstanceType;
 
   /**
-   * The amount (in MiB) of memory used by the keycloak task.
+   * The number of EC2 instances in ASG.
    *
-   * @default 8192
-   * @see FargateTaskDefinitionProps
+   * @default 2
+   * @see AddCapacityOptions
    */
-  readonly taskMemory?: number;
+  readonly ecsAsgDesiredCapacity?: number;
 }
 
 export class ContainerService extends Construct {
-  readonly service: ecs.FargateService;
+  readonly service: ecs.Ec2Service;
   readonly applicationLoadBalancer: elbv2.ApplicationLoadBalancer;
   constructor(scope: Construct, id: string, props: ContainerServiceProps) {
     super(scope, id);
@@ -817,9 +818,15 @@ export class ContainerService extends Construct {
         new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       ),
     });
-    const taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDef', {
-      cpu: props.taskCpu ?? 4096,
-      memoryLimitMiB: props.taskMemory ?? 8192,
+
+    cluster.addCapacity('DefaultAutoScalingGroupCapacity', {
+      instanceType: props.ecsAsgInstanceType
+        ? props.ecsAsgInstanceType
+        : ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, InstanceSize.SMALL),
+      desiredCapacity: props.ecsAsgDesiredCapacity ? props.ecsAsgDesiredCapacity : 2,
+    });
+
+    const taskDefinition = new ecs.Ec2TaskDefinition(this, 'TaskDef', {
       executionRole,
     });
 
@@ -844,7 +851,7 @@ export class ContainerService extends Construct {
     // we need extra privileges to fetch keycloak docker images from China mirror site
     taskDefinition.executionRole?.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ContainerRegistryReadOnly'));
 
-    this.service = new ecs.FargateService(this, 'Service', {
+    this.service = new ecs.Ec2Service(this, 'Service', {
       cluster,
       taskDefinition,
       circuitBreaker: props.circuitBreaker ? { rollback: true } : undefined,
